@@ -17,10 +17,32 @@
       </div>
 
       <!-- Time Travel -->
-      <div>
-        <label class="text-gray-400 text-xs">时间旅行</label>
+      <div class="bg-gray-800 rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-gray-400 text-xs font-medium">时间旅行</label>
+          <span v-if="store.isCurrentTime"
+            class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+            🟢 当前时刻
+          </span>
+          <span v-else
+            class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            🕒 {{ store.timeOffsetDescription }}
+          </span>
+        </div>
         <input type="datetime-local" v-model="dateStr" @input="updateDate"
-          class="w-full bg-gray-800 rounded px-3 py-2 text-sm" />
+          class="w-full bg-gray-900 rounded px-3 py-2 text-sm border border-gray-700 focus:border-blue-500 focus:outline-none" />
+        <button v-if="!store.isCurrentTime"
+          @click="handleResetToNow"
+          class="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          回到当前时刻
+        </button>
+        <div v-if="!store.isCurrentTime" class="text-xs text-gray-500 text-center">
+          正在查看 {{ formatViewDate }} 的星空
+        </div>
       </div>
 
       <!-- Location -->
@@ -80,11 +102,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSkyStore } from './store/sky'
 import StarCanvas from './components/StarCanvas.vue'
 
 const store = useSkyStore()
 const dateStr = ref(new Date().toISOString().slice(0, 16))
+
 function updateDate() { store.viewDate = new Date(dateStr.value) }
+
+function handleResetToNow() {
+  store.resetToNow()
+}
+
+const formatViewDate = computed(() => {
+  const d = store.viewDate
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+})
+
+watch(() => store.viewDate, (newDate) => {
+  dateStr.value = newDate.toISOString().slice(0, 16)
+}, { immediate: true })
+
+onMounted(() => {
+  store.startTicker()
+})
+
+onUnmounted(() => {
+  store.stopTicker()
+})
 </script>

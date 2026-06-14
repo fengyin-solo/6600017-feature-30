@@ -5,6 +5,7 @@ import type { Star } from '../types'
 
 export const useSkyStore = defineStore('sky', () => {
   const viewDate = ref(new Date())
+  const now = ref(new Date())
   const zoom = ref(1.0)
   const panX = ref(0)
   const panY = ref(0)
@@ -14,6 +15,21 @@ export const useSkyStore = defineStore('sky', () => {
   const selectedStar = ref<Star | null>(null)
   const searchQuery = ref('')
   const latitude = ref(39.9) // Beijing default
+  let tickInterval: number | null = null
+
+  function startTicker() {
+    if (tickInterval) return
+    tickInterval = window.setInterval(() => {
+      now.value = new Date()
+    }, 1000)
+  }
+
+  function stopTicker() {
+    if (tickInterval) {
+      clearInterval(tickInterval)
+      tickInterval = null
+    }
+  }
 
   const localSiderealTime = computed(() => {
     const d = viewDate.value
@@ -23,6 +39,53 @@ export const useSkyStore = defineStore('sky', () => {
     lst = ((lst % 360) + 360) % 360
     return lst / 15 // convert to hours
   })
+
+  const TIME_TOLERANCE_MS = 60 * 1000
+
+  const isCurrentTime = computed(() => {
+    return Math.abs(viewDate.value.getTime() - now.value.getTime()) <= TIME_TOLERANCE_MS
+  })
+
+  const timeOffsetDescription = computed(() => {
+    const diff = viewDate.value.getTime() - now.value.getTime()
+    const absDiff = Math.abs(diff)
+    const isPast = diff < 0
+
+    const minutes = Math.floor(absDiff / 60000)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+    const months = Math.floor(days / 30)
+    const years = Math.floor(days / 365)
+
+    let desc = ''
+    if (years > 0) {
+      desc = `${years} 年`
+      const remainingMonths = months % 12
+      if (remainingMonths > 0) desc += ` ${remainingMonths} 个月`
+    } else if (months > 0) {
+      desc = `${months} 个月`
+      const remainingDays = days % 30
+      if (remainingDays > 0) desc += ` ${remainingDays} 天`
+    } else if (days > 0) {
+      desc = `${days} 天`
+      const remainingHours = hours % 24
+      if (remainingHours > 0) desc += ` ${remainingHours} 小时`
+    } else if (hours > 0) {
+      desc = `${hours} 小时`
+      const remainingMinutes = minutes % 60
+      if (remainingMinutes > 0) desc += ` ${remainingMinutes} 分钟`
+    } else if (minutes > 0) {
+      desc = `${minutes} 分钟`
+    } else {
+      desc = '不到 1 分钟'
+    }
+
+    return isPast ? `${desc}前` : `${desc}后`
+  })
+
+  function resetToNow() {
+    viewDate.value = new Date()
+  }
 
   const filteredStars = computed(() => {
     if (!searchQuery.value) return []
@@ -72,6 +135,7 @@ export const useSkyStore = defineStore('sky', () => {
   return {
     viewDate, zoom, panX, panY, showLabels, showConstLines, showGrid,
     selectedStar, searchQuery, latitude, localSiderealTime, filteredStars,
+    isCurrentTime, timeOffsetDescription, resetToNow, startTicker, stopTicker,
     projectStar, starRadius, spectralColor, selectStar,
     STARS, CONSTELLATIONS
   }
